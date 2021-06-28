@@ -1,0 +1,177 @@
+---
+title: "Teste - 4intelligence"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### PROVA DE CIÊNCIA DE DADOS
+
+### Candidata: Juliane do Carmo Duare Magalhães
+
+
+```{r , include=FALSE}
+
+library(lmtest)
+library(ggplot2)
+library(forecast)
+library(corrplot)
+```
+________________________________________________________________ 
+#### **1.Dados**
+
+#### **Análise Descritiva**
+
+Foram selecionadas da base de dados requerida as variáveis: Temperarura máxima, Pesquisa mensal do comércio ampliada, Produção industrial, Consumo de energia do comércio e residencial, além da série de consumo da indústria, todas referentes à região Sudeste do país. 
+
+
+```{r, echo=FALSE}
+
+#Leitura dos dados:
+
+data <- readxl::read_xlsx("C:/Users/julia/Downloads/Bases_Final_ADS_Jun2021.xlsx", sheet = 2)
+
+data_se <- subset(data, select = c(ind_se, temp_max_se, pmc_a_se, pim_se, com_se, res_se))
+
+df <- ts(data_se, start = c(2004, 1), end = c(2020,12), frequency = 12)
+
+```
+
+
+É importante visualizar as séries e assom identificar o comportamento sazonal, tendencioso e/ou cíclico. O comportamento de demanda por energia tende a apresentar sazonalidade devido às oscilações de temperatura e clima na região, como observamos nos gráficos abaixo:
+
+```{r, echo=FALSE}
+
+
+#Visualização das séries selecionadas:
+
+autoplot(df, facets = TRUE) +
+  ggtitle("Dados - Sudeste") +
+  xlab("Anos") +
+  ylab("")
+
+```
+
+```{r, echo=FALSE}
+
+# Consumo de energia da indústria
+
+autoplot(df[,1]) +
+  ggtitle("Consumo de Energia na indústria - Sudeste - 2004-2020") +
+  xlab("Anos") +
+  ylab("Gwh")
+
+```
+
+O gráfico a seguir mostra uma queda na temperatura máxima nos meses do junho e julho. 
+
+```{r, echo=FALSE}
+
+
+# Mostrando  a sazonalidade das séries
+
+ggseasonplot(df[,1], year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("Gwh") +
+  ggtitle("Sazonalidade - Consumo")
+
+```
+
+```{r, echo=FALSE}
+
+# Mostrando  a sazonalidade das séries
+
+ggseasonplot(df[,2], year.labels=TRUE, year.labels.left=TRUE) +
+  ylab("C°") +
+  ggtitle("Sazonalidade - Temperatura")
+
+``` 
+
+
+
+A relação entre as séries é fator de destque. Observemos a relação entre demanda de energia pela indústria e as ttemperaturas máximas observadas:
+
+
+```{r, echo=FALSE}
+
+
+autoplot(df[,c(1,2)], facets=TRUE) +
+  xlab("Anos") + ylab("") +
+  ggtitle("Uso de energia e Temperaturas máximas no Sudeste")
+
+
+qplot(temp_max_se, ind_se, data=as.data.frame(df)) +
+  ylab("Demanda") + xlab("Temperatura")
+
+
+
+```
+
+
+Não há uma relação crescente óbvia como poderíamos supor. 
+Agora analisando a relação entre todas as séries:
+
+```{r, echo=FALSE}
+
+GGally::ggpairs(as.data.frame(df[,1:6]))
+
+
+```
+
+O aumento na produção industrial é o principal condutor de aumentos na demanda por energia na indústria. 
+
+
+Outras informações básicas sobre as séries podem ser obtidas através de um simples comando: summary()
+
+```{r, echo=FALSE}
+summary(df)
+
+```
+
+#### **Forecasting**
+
+
+Existem métodos simples de previsão baseados nas infomações passadas chamados métodos ingênuos ou naive methods. Como a séria apresenta sazonalidade, podemos usar um método que leve esse componente em conta:
+
+
+```{r, echo=FALSE}
+
+#base de treino
+training=window(df[,1], start = c(2004,1), end = c(2018,12))
+validation=window(df[,1], start = c(2019,1), end = c(2020,12))
+
+autoplot(training) +
+  autolayer(meanf(training, h=24),
+            series="Média", PI=FALSE) +
+  autolayer(naive(training, h=24),
+            series="Naive", PI=FALSE) +
+  autolayer(snaive(training, h=24),
+            series="Sazonal", PI=FALSE) +
+  ggtitle("Previsões para consumo de energia da indústria") +
+  xlab("Anos") + ylab("Gwh") 
+
+
+
+
+
+fit1 <- meanf(training, h=24)
+fit2 <- naive(training, h=24)
+fit3 <- snaive(training, h=24)
+
+
+accuracy(fit1, validation)
+accuracy(fit2, validation)
+accuracy(fit3, validation)
+
+``` 
+
+O método básico que se mostrou mais adequado entre os acima foi o método "naive". Outros métodos são: Holt, Holt-Winters, entre outros. 
+
+
+
+
+
+
